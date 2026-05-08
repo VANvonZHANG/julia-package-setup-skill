@@ -28,7 +28,9 @@ jobs:
 
 ## TagBot
 
-`.github/workflows/TagBot.yml` — automatically creates git tags when Registry PRs are merged.
+`.github/workflows/TagBot.yml` — automatically creates git tags and GitHub releases when Registry PRs are merged.
+
+TagBot runs after a Julia General Registry PR is merged. By default it creates a tag and a release with auto-generated notes from merged PRs. To instead pull release notes from `CHANGELOG.md`, add the `Update release notes from CHANGELOG` step:
 
 ```yaml
 name: TagBot
@@ -42,12 +44,38 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: JuliaRegistries/TagBot@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update release notes from CHANGELOG
+        run: |
+          sleep 5
+          TAG=$(git describe --tags --abbrev=0)
+          VERSION="${TAG#v}"
+          NOTES=$(awk "/^## \\[$VERSION\\]/{flag=1;next}/^## \\[/{flag=0}flag" CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//')
+          if [ -n "$NOTES" ]; then
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "$NOTES"
+            else
+              gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "{{ PACKAGE_NAME }} $TAG" --notes "$NOTES"
+            fi
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+**Notes on the `Update release notes from CHANGELOG` step:**
+- It extracts the section for the current version from `CHANGELOG.md`.
+- If TagBot already created a release, it overwrites the body with the CHANGELOG content.
+- If TagBot only created a tag (e.g. the tag was created manually earlier), it creates the missing release.
+- Requires `actions/checkout@v4` before the TagBot step so that `CHANGELOG.md` is available.
+
 **Required**: Install the [JuliaRegistrator](https://github.com/apps/juliaregistrator) GitHub App on the repository first.
+
+**TagBot only creates releases for *new* registrations.** If a tag already exists (e.g. you pushed it manually before TagBot ran), TagBot skips with "No new versions to release". In that case, either:
+1. Run TagBot manually via **Actions → TagBot → Run workflow** (the `Update release notes` step will still execute and create the release), or
+2. Create the release manually with `gh release create vX.Y.Z --notes "..."`.
 
 ## JuliaFormatter
 

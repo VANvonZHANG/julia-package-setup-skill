@@ -59,15 +59,17 @@ JuliaRegistrator bot will:
 
 Track progress at the PR URL provided by the bot.
 
-## Step 4: Tag Created Automatically
+## Step 4: Tag and Release Created Automatically
 
 After the General PR merges:
-- If **TagBot** is installed: tag `vX.Y.Z` is created automatically
-- If not: manually create tag:
+- If **TagBot** is installed: tag `vX.Y.Z` is created automatically.
+- If your TagBot workflow includes the `Update release notes from CHANGELOG` step: a GitHub release is also created (or updated) with the version-specific notes from `CHANGELOG.md`.
+
+**If TagBot skipped because the tag already exists** (e.g. you pushed it manually):
+- Trigger TagBot manually via **Actions → TagBot → Run workflow**. The CHANGELOG extraction step will still run and create the missing release.
+- Or create the release manually:
   ```bash
-  git fetch origin
-  git tag -a vX.Y.Z -m "Version X.Y.Z"
-  git push origin vX.Y.Z
+  gh release create vX.Y.Z --title "PackageName vX.Y.Z" --notes-file release-notes.md
   ```
 
 ## Step 5: Verify Installation
@@ -96,3 +98,6 @@ Update `version` in `Project.toml` BEFORE triggering registration.
 | "Missing compat entry for julia" | Add `julia = "1.10"` to `[compat]` |
 | "No LICENSE file" | Add a LICENSE |
 | Registration PR stuck | Comment `[noblock]` to prevent blocking, or wait for maintainer |
+| TagBot says "No new versions to release" | The tag already exists. Trigger TagBot manually via workflow_dispatch, or create the release manually with `gh release create`. |
+| No GitHub release after registration | Ensure the TagBot workflow has the `Update release notes from CHANGELOG` step, or create the release manually. |
+| GitHub Pages shows 404 | Enable Pages in repo Settings → Pages, set source to `gh-pages` branch. |

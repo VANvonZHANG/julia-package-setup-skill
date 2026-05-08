@@ -142,7 +142,7 @@ end
 
 ## Step 2B: Configure CI/CD Workflows
 
-Read `references/ci-workflow.md` for the main CI template and `references/auxiliary-workflows.md` for additional workflows.
+Read `references/ci-workflow.md` for the main CI template, `references/auxiliary-workflows.md` for TagBot/CompatHelper/Formatter, and `references/changelog-guide.md` for release note conventions.
 
 **Must-have workflows:**
 
@@ -269,6 +269,7 @@ All bundled templates are in `references/`:
 
 - `references/project-structure.md` — Project.toml, LICENSE, .gitignore, module structure
 - `references/ci-workflow.md` — Main CI.yml template with matrix configuration
-- `references/auxiliary-workflows.md` — TagBot, CompatHelper, JuliaFormatter, Invalidations
+- `references/auxiliary-workflows.md` — TagBot (with CHANGELOG integration), CompatHelper, JuliaFormatter, Invalidations
+- `references/changelog-guide.md` — Keep a Changelog format and GitHub release integration
 - `references/docs-deployment.md` — Documenter.jl setup, GitHub Pages deployment
 - `references/registry-guide.md` — Complete registration process with troubleshooting
