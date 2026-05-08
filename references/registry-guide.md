@@ -17,6 +17,8 @@ Before registering, ensure:
 3. Select your repository (or **All repositories**)
 4. Confirm installation
 
+**Note:** The older `RegisterAction` workflow (julia-actions/RegisterAction) still works but is no longer the community standard. Use JuliaRegistrator App for new projects.
+
 ## Step 2: Trigger Registration
 
 Two methods:
@@ -48,6 +50,8 @@ Two methods:
    - fix: corrected yyy
    ```
 
+**Release notes in the registration comment** become the `{{ custom }}` content in TagBot's default release template. TagBot will still append auto-generated PR/issue lists below it.
+
 ## Step 3: Wait for AutoMerge
 
 JuliaRegistrator bot will:
@@ -63,7 +67,7 @@ Track progress at the PR URL provided by the bot.
 
 After the General PR merges:
 - If **TagBot** is installed: tag `vX.Y.Z` is created automatically.
-- If your TagBot workflow includes the `Update release notes from CHANGELOG` step: a GitHub release is also created (or updated) with the version-specific notes from `CHANGELOG.md`.
+- If your TagBot workflow includes the `Prepend CHANGELOG to release notes` step: a GitHub release is created with CHANGELOG content **above** TagBot's auto-generated PR/issue list.
 
 **If TagBot skipped because the tag already exists** (e.g. you pushed it manually):
 - Trigger TagBot manually via **Actions → TagBot → Run workflow**. The CHANGELOG extraction step will still run and create the missing release.
@@ -71,6 +75,10 @@ After the General PR merges:
   ```bash
   gh release create vX.Y.Z --title "PackageName vX.Y.Z" --notes-file release-notes.md
   ```
+
+**If TagBot failed with 403 permission denied:**
+- Ensure your TagBot workflow has explicit `permissions: contents: write`
+- Or go to repo Settings → Actions → General → Workflow permissions → select **"Read and write permissions"**
 
 ## Step 5: Verify Installation
 
@@ -80,13 +88,14 @@ using Pkg
 Pkg.add("YourPackageName")
 ```
 
-## Version Numbering (SemVer)
+## Version Numbering (SemVer for 0.x)
 
 | Bump | When |
 |------|------|
+| `0.1.0` → `0.1.1` | New features or bug fixes (backward compatible) |
 | `0.1.0` → `0.2.0` | Breaking changes |
-| `0.1.0` → `0.1.1` | New features (backward compatible) |
-| `0.1.1` → `0.1.2` | Bug fixes only |
+
+**Important:** In Julia's 0.x SemVer convention, patch bumps (`0.1.0 → 0.1.1`) are for all backward-compatible changes (features and fixes). Only bump minor (`0.1.0 → 0.2.0`) when you introduce breaking changes.
 
 Update `version` in `Project.toml` BEFORE triggering registration.
 
@@ -99,5 +108,7 @@ Update `version` in `Project.toml` BEFORE triggering registration.
 | "No LICENSE file" | Add a LICENSE |
 | Registration PR stuck | Comment `[noblock]` to prevent blocking, or wait for maintainer |
 | TagBot says "No new versions to release" | The tag already exists. Trigger TagBot manually via workflow_dispatch, or create the release manually with `gh release create`. |
-| No GitHub release after registration | Ensure the TagBot workflow has the `Update release notes from CHANGELOG` step, or create the release manually. |
+| TagBot fails with 403 on `git push origin vX.Y.Z` | Add explicit `permissions: contents: write` to TagBot.yml, or enable "Read and write permissions" in repo Settings → Actions → General |
+| TagBot fails with "refusing to allow a GitHub App to create or update workflow" | The tagged commit modified `.github/workflows/`. Configure an SSH deploy key (see `auxiliary-workflows.md`). |
+| No GitHub release after registration | Ensure the TagBot workflow has the CHANGELOG step (if using combined mode), or create the release manually. |
 | GitHub Pages shows 404 | Enable Pages in repo Settings → Pages, set source to `gh-pages` branch. |

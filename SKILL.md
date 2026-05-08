@@ -246,13 +246,14 @@ Read `references/registry-guide.md` for the complete registration process.
    - Subsequent: usually hours
 6. **Tag created automatically** — TagBot creates `vX.Y.Z` tag after PR merges
 
-**Version numbering:**
+**Version numbering (SemVer for 0.x):**
 
 | From | To | Reason |
 |------|-----|--------|
+| 0.1.0 | 0.1.1 | New features or bug fixes (backward compatible) |
 | 0.1.0 | 0.2.0 | Breaking changes |
-| 0.1.0 | 0.1.1 | New features (backward compatible) |
-| 0.1.1 | 0.1.2 | Bug fixes only |
+
+In Julia's 0.x convention, patch bumps include all backward-compatible changes. Only bump minor for breaking changes.
 
 ## Common Pitfalls
 
@@ -260,8 +261,9 @@ Read `references/registry-guide.md` for the complete registration process.
 2. **No LICENSE**: Registry requires a LICENSE file
 3. **Duplicate codecov uploads**: Only upload coverage from ONE CI job
 4. **TagBot not installed**: Without TagBot, tags must be created manually after registration
-5. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
-6. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
+5. **TagBot 403 permission denied**: Ensure explicit `permissions: contents: write` in TagBot.yml, or enable "Read and write permissions" in repo Settings → Actions → General
+6. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
+7. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
 
 ## Directory Reference
 

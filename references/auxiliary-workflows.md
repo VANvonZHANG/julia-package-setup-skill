@@ -30,7 +30,9 @@ jobs:
 
 `.github/workflows/TagBot.yml` — automatically creates git tags and GitHub releases when Registry PRs are merged.
 
-TagBot runs after a Julia General Registry PR is merged. By default it creates a tag and a release with auto-generated notes from merged PRs. To instead pull release notes from `CHANGELOG.md`, add the `Update release notes from CHANGELOG` step:
+TagBot runs after a Julia General Registry PR is merged. By default it creates a tag and a release with auto-generated notes from merged PRs and closed issues.
+
+### Standard Configuration (Recommended)
 
 ```yaml
 name: TagBot
@@ -39,6 +41,15 @@ on:
     types:
       - created
   workflow_dispatch:
+    inputs:
+      lookback:
+        default: 3
+  schedule:
+    - cron: 0 0 * * *  # daily check for newly registered versions
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
 jobs:
   TagBot:
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
@@ -48,34 +59,81 @@ jobs:
       - uses: JuliaRegistries/TagBot@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Update release notes from CHANGELOG
+```
+
+**Why explicit `permissions`?** The official TagBot docs suggest using defaults, but production practice (e.g., [Meshes.jl](https://github.com/JuliaGeometry/Meshes.jl)) uses explicit minimal permissions. This avoids silent failures when repository-wide workflow permissions are set to read-only.
+
+### Combined Mode: CHANGELOG + Auto-Generated PR/Issue Lists
+
+If you maintain a `CHANGELOG.md` and want **both** human-curated descriptions (from CHANGELOG) and machine-generated PR/issue lists (from TagBot), prepend the CHANGELOG content instead of replacing:
+
+```yaml
+name: TagBot
+on:
+  issue_comment:
+    types:
+      - created
+  workflow_dispatch:
+    inputs:
+      lookback:
+        default: 3
+  schedule:
+    - cron: 0 0 * * *
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+jobs:
+  TagBot:
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JuliaRegistries/TagBot@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepend CHANGELOG to release notes
         run: |
           sleep 5
           TAG=$(git describe --tags --abbrev=0)
           VERSION="${TAG#v}"
           NOTES=$(awk "/^## \\[$VERSION\\]/{flag=1;next}/^## \\[/{flag=0}flag" CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//')
           if [ -n "$NOTES" ]; then
-            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "$NOTES"
-            else
-              gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "{{ PACKAGE_NAME }} $TAG" --notes "$NOTES"
+            EXISTING=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q '.body' 2>/dev/null || echo "")
+            if [ -n "$EXISTING" ]; then
+              COMBINED="${NOTES}"$'\n\n---\n\n'"${EXISTING}"
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "${COMBINED}"
             fi
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-**Notes on the `Update release notes from CHANGELOG` step:**
-- It extracts the section for the current version from `CHANGELOG.md`.
-- If TagBot already created a release, it overwrites the body with the CHANGELOG content.
-- If TagBot only created a tag (e.g. the tag was created manually earlier), it creates the missing release.
-- Requires `actions/checkout@v4` before the TagBot step so that `CHANGELOG.md` is available.
+**How it works:**
+1. TagBot creates the release with auto-generated PR/issue lists
+2. The script reads the matching section from `CHANGELOG.md`
+3. It prepends the CHANGELOG content above TagBot's output, separated by `---`
+
+### SSH Deploy Key (Optional but Recommended)
+
+If a version commit modifies `.github/workflows/`, GitHub blocks `GITHUB_TOKEN` from pushing tags with:
+> "refusing to allow a GitHub App to create or update workflow"
+
+To handle this, add an SSH deploy key:
+
+```yaml
+      - uses: JuliaRegistries/TagBot@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ssh: ${{ secrets.TAGBOT_KEY }}
+```
+
+**Setup:**
+1. Generate an SSH key pair (no passphrase): `ssh-keygen -t ed25519 -f tagbot -N ""`
+2. Add the **public key** to repo Settings → Deploy keys → Add deploy key → Allow write access
+3. Add the **private key** as a repository secret named `TAGBOT_KEY`
 
 **Required**: Install the [JuliaRegistrator](https://github.com/apps/juliaregistrator) GitHub App on the repository first.
-
-**TagBot only creates releases for *new* registrations.** If a tag already exists (e.g. you pushed it manually before TagBot ran), TagBot skips with "No new versions to release". In that case, either:
-1. Run TagBot manually via **Actions → TagBot → Run workflow** (the `Update release notes` step will still execute and create the release), or
-2. Create the release manually with `gh release create vX.Y.Z --notes "..."`.
 
 ## JuliaFormatter
 
