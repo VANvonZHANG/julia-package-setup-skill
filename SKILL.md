@@ -262,8 +262,9 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 3. **Duplicate codecov uploads**: Only upload coverage from ONE CI job
 4. **TagBot not installed**: Without TagBot, tags must be created manually after registration
 5. **TagBot 403 permission denied**: Ensure explicit `permissions: contents: write` in TagBot.yml, or enable "Read and write permissions" in repo Settings → Actions → General
-6. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
-7. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
+6. **Doc Preview Cleanup 403**: GitHub Actions defaults to read-only since 2023. Any workflow that pushes to a branch (Doc Preview Cleanup on `gh-pages`, TagBot creating tags, Documentation deploying docs) must declare `permissions: contents: write` at the job level. Do not rely on repository-wide settings.
+7. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
+8. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
 
 ## Directory Reference
 

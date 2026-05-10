@@ -126,24 +126,40 @@ The `deploydocs` function in `make.jl` creates and pushes to the `gh-pages` bran
 
 ## Doc Preview Cleanup
 
-For PR previews, also add `.github/workflows/DocCleanup.yml`:
+PR 关闭后，Documenter.jl 在 `gh-pages` 分支上留下的预览目录（`previews/PR{编号}/`）不会自动删除。需要额外配置 `.github/workflows/DocCleanup.yml` 来清理。
+
+### 权限陷阱
+
+GitHub Actions 从 2023 年起默认只授予 **read** 权限。Doc Preview Cleanup 需要向 `gh-pages` 分支 force-push，必须在 workflow 中显式声明写权限：
 
 ```yaml
-name: DocCleanup
+name: Doc Preview Cleanup
 on:
   pull_request:
     types: [closed]
 jobs:
   doc-preview-cleanup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v6
         with:
-          version: "1"
-      - run: |
-          julia -e 'using Pkg; Pkg.add("Documenter")'
-          julia -e 'using Documenter; Documenter.post_status(; type="pending", repo="$GITHUB_REPOSITORY")'
+          ref: gh-pages
+        continue-on-error: true
+      - name: Delete preview and history
+        run: |
+          git config user.name "Documenter.jl"
+          git config user.email "documenter@juliadocs.github.io"
+          git rm -rf "previews/PR$PRNUM" || true
+          git commit -m "delete preview" || true
+          git branch gh-pages-new $(echo "delete history" | git commit-tree HEAD^{tree})
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRNUM: ${{ github.event.number }}
+      - name: Push changes
+        run: |
+          git push --force origin gh-pages-new:gh-pages
 ```
+
+**关键**：`permissions: contents: write` 必须加在 `jobs.doc-preview-cleanup` 级别，不能省略。省略会导致 `git push` 报 403，CI 持续失败。

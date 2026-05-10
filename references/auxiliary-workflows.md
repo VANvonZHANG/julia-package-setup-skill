@@ -184,27 +184,39 @@ jobs:
 
 ## DocCleanup
 
-`.github/workflows/DocCleanup.yml` — removes old documentation previews.
+`.github/workflows/DocCleanup.yml` — removes old documentation previews from `gh-pages` when a PR is closed.
 
 ```yaml
-name: DocCleanup
+name: Doc Preview Cleanup
 on:
   pull_request:
     types: [closed]
 jobs:
   doc-preview-cleanup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v6
         with:
-          version: '1'
-      - run: |
-          julia -e 'using Pkg; Pkg.add("Documenter")'
-          julia -e 'using Documenter; Documenter.post_status(; type="pending", repo="$GITHUB_REPOSITORY")'
+          ref: gh-pages
+        continue-on-error: true
+      - name: Delete preview and history
+        run: |
+          git config user.name "Documenter.jl"
+          git config user.email "documenter@juliadocs.github.io"
+          git rm -rf "previews/PR$PRNUM" || true
+          git commit -m "delete preview" || true
+          git branch gh-pages-new $(echo "delete history" | git commit-tree HEAD^{tree})
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRNUM: ${{ github.event.number }}
+      - name: Push changes
+        run: |
+          git push --force origin gh-pages-new:gh-pages
 ```
+
+**Critical**: Without `permissions: contents: write`, the push step fails with 403. GitHub Actions defaults to read-only since 2023.
 
 ## Summary: Which workflows to include?
 
