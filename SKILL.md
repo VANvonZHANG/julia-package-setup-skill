@@ -263,8 +263,12 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 4. **TagBot not installed**: Without TagBot, tags must be created manually after registration
 5. **TagBot 403 permission denied**: Ensure explicit `permissions: contents: write` in TagBot.yml, or enable "Read and write permissions" in repo Settings → Actions → General
 6. **Doc Preview Cleanup 403**: GitHub Actions defaults to read-only since 2023. Any workflow that pushes to a branch (Doc Preview Cleanup on `gh-pages`, TagBot creating tags, Documentation deploying docs) must declare `permissions: contents: write` at the job level. Do not rely on repository-wide settings.
-7. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
-8. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
+7. **DOCUMENTER_KEY not configured**: Documenter.jl needs an SSH deploy key to push docs to `gh-pages`. Without it, docs build but never deploy. Generate with `ssh-keygen -t ed25519`, add private key as `DOCUMENTER_KEY` secret, public key as Deploy key with write access.
+8. **Julia `version: "1"` picks pre-releases**: In GitHub Actions, `"1"` resolves to the latest release including pre-releases with breaking internal changes (e.g., Julia 1.12 dropped `Core.TypeName.mt`, breaking MakieCore precompilation). Pin deployment workflows (docs, formatter, CompatHelper) to an explicit LTS like `"1.10"`.
+9. **Submodule docstrings missing from manual**: `@autodocs Modules = [YourPackageName]` does not include submodules. Add a separate `@autodocs Modules = [YourPackageName.SubModule]` block or set `checkdocs = :exports` / `warnonly = [:missing_docs]` in `makedocs`.
+10. **Aqua stale_deps with hard dependencies**: If you add a package to `[deps]`, the main module must `using` or `import` it somewhere, or Aqua will flag it as stale. Re-export patterns (`@eval const $sym = SubModule.$sym`) do not count as usage for Aqua.
+11. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
+12. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
 
 ## Directory Reference
 

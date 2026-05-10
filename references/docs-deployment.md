@@ -47,6 +47,24 @@ deploydocs(
 )
 ```
 
+## Submodule Docstrings
+
+If you define docstrings in submodules (e.g., `YourPackageName.SubModule`), `@autodocs` with `Modules = [YourPackageName]` will **not** pick them up. Documenter will fail with `missing_docs` unless you explicitly include the submodule:
+
+```markdown
+## API Reference
+
+```@autodocs
+Modules = [YourPackageName]
+```
+
+### Visualization
+
+```@autodocs
+Modules = [YourPackageName.VisualizationPlotting]
+```
+```
+
 ## docs/src/index.md
 
 ```markdown
@@ -105,15 +123,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1"
+          version: "1.10"
       - uses: julia-actions/cache@v2
       - name: Install dependencies
         run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
         run: julia --project=docs docs/make.jl
 ```
+
+**Critical**: Use an explicit Julia version (`"1.10"`) instead of `"1"`. `"1"` resolves to the latest release, which may be a pre-release with breaking internal API changes that cause dependency precompilation failures.
 
 ## GitHub Pages Setup
 
@@ -123,6 +144,33 @@ jobs:
 4. Click Save
 
 The `deploydocs` function in `make.jl` creates and pushes to the `gh-pages` branch automatically.
+
+## SSH Deploy Key Setup (DOCUMENTER_KEY)
+
+`deploydocs()` pushes the built HTML to the `gh-pages` branch via SSH. The `DOCUMENTER_KEY` secret must be configured **before** the first documentation build, or deployment will silently fail.
+
+**Generate the key pair** (no passphrase):
+
+```bash
+ssh-keygen -t ed25519 -C "documenter" -f documenter_key -N ""
+```
+
+This produces two files: `documenter_key` (private) and `documenter_key.pub` (public).
+
+**Add the private key as a repository secret:**
+
+1. Go to repository Settings → Secrets and variables → Actions → New repository secret
+2. Name: `DOCUMENTER_KEY`
+3. Value: the entire contents of `documenter_key`
+
+**Add the public key as a deploy key:**
+
+1. Go to repository Settings → Deploy keys → Add deploy key
+2. Title: `Documenter`
+3. Key: the entire contents of `documenter_key.pub`
+4. ✅ Check **"Allow write access"**
+
+Without this setup, the documentation builds successfully but never deploys to `gh-pages`, so the site remains empty or stale.
 
 ## Doc Preview Cleanup
 

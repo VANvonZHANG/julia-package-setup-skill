@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1'
+          version: '1.10'
       - name: Pkg.add("CompatHelper")
         run: julia -e 'using Pkg; Pkg.add("CompatHelper")'
       - name: CompatHelper.main()
@@ -97,7 +97,7 @@ jobs:
           sleep 5
           TAG=$(git describe --tags --abbrev=0)
           VERSION="${TAG#v}"
-          NOTES=$(awk "/^## \\[$VERSION\\]/{flag=1;next}/^## \\[/{flag=0}flag" CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//')
+          NOTES=$(awk "/^## \[$VERSION\]/{flag=1;next}/^## \[/{flag=0}flag" CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//')
           if [ -n "$NOTES" ]; then
             EXISTING=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q '.body' 2>/dev/null || echo "")
             if [ -n "$EXISTING" ]; then
@@ -152,13 +152,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1'
+          version: '1.10'
       - run: |
           julia -e 'using Pkg; Pkg.add("JuliaFormatter")'
           julia -e 'using JuliaFormatter; format(".", verbose=true)'
       - run: |
           git diff --exit-code || (echo "::error::Code is not formatted. Run 'julia -e '"'"'using JuliaFormatter; format(".")'"'"''"; exit 1)
 ```
+
+**Pin Julia version** (`'1.10'`) to avoid formatter behavior changes on pre-releases.
 
 ## Invalidations
 
@@ -175,7 +177,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1'
+          version: '1.10'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-invalidations@v1
         with:
