@@ -227,24 +227,23 @@ Wait for CI to go green on GitHub before registering.
 
 Read `references/registry-guide.md` for the complete registration process.
 
+**Prerequisite**: TagBot must be configured with CHANGELOG auto-read (see `references/auxiliary-workflows.md` TagBot Combined Mode). This means `CHANGELOG.md` is the single source of truth for release notes — no need to manually copy them into the registration comment.
+
 **Quick reference:**
 
 1. **Install JuliaRegistrator app**: https://github.com/apps/JuliaRegistrator → Install on repo
 2. **Update version in Project.toml** (SemVer: breaking→minor, features→patch, fixes→patch)
-3. **Push the version bump commit**
-4. **Trigger registration** — comment on the commit:
+3. **Update `CHANGELOG.md`** — add a `## [X.Y.Z] - YYYY-MM-DD` section with your changes, move entries out of `[Unreleased]`
+4. **Push the version bump + CHANGELOG commit**
+5. **Trigger registration** — comment on the commit:
    ```
-   @JuliaRegistrator register()
-
-   Release notes:
-
-   - feat: description of new features
-   - fix: description of bug fixes
+   @JuliaRegistrator register
    ```
-5. **Wait for AutoMerge** — bot creates PR in JuliaRegistries/General
+   No need to attach `Release notes:` — TagBot will automatically read the matching version section from `CHANGELOG.md` and prepend it to the GitHub release.
+6. **Wait for AutoMerge** — bot creates PR in JuliaRegistries/General
    - First registration: 3-day waiting period
    - Subsequent: usually hours
-6. **Tag created automatically** — TagBot creates `vX.Y.Z` tag after PR merges
+7. **Tag + Release created automatically** — TagBot creates `vX.Y.Z` tag and a GitHub release with CHANGELOG content + auto-generated PR/issue lists
 
 **Version numbering (SemVer for 0.x):**
 

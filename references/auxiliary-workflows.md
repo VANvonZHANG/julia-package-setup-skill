@@ -32,40 +32,9 @@ jobs:
 
 TagBot runs after a Julia General Registry PR is merged. By default it creates a tag and a release with auto-generated notes from merged PRs and closed issues.
 
-### Standard Configuration (Recommended)
+### Recommended Configuration: Combined Mode (CHANGELOG Auto-Read)
 
-```yaml
-name: TagBot
-on:
-  issue_comment:
-    types:
-      - created
-  workflow_dispatch:
-    inputs:
-      lookback:
-        default: 3
-  schedule:
-    - cron: 0 0 * * *  # daily check for newly registered versions
-permissions:
-  contents: write
-  issues: read
-  pull-requests: read
-jobs:
-  TagBot:
-    if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: JuliaRegistries/TagBot@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-**Why explicit `permissions`?** The official TagBot docs suggest using defaults, but production practice (e.g., [Meshes.jl](https://github.com/JuliaGeometry/Meshes.jl)) uses explicit minimal permissions. This avoids silent failures when repository-wide workflow permissions are set to read-only.
-
-### Combined Mode: CHANGELOG + Auto-Generated PR/Issue Lists
-
-If you maintain a `CHANGELOG.md` and want **both** human-curated descriptions (from CHANGELOG) and machine-generated PR/issue lists (from TagBot), prepend the CHANGELOG content instead of replacing:
+This is the recommended setup. TagBot automatically reads `CHANGELOG.md` for release notes — no need to manually paste notes into the `@JuliaRegistrator register` comment. The release body combines human-curated CHANGELOG content (top) with auto-generated PR/issue lists (bottom).
 
 ```yaml
 name: TagBot
@@ -92,6 +61,7 @@ jobs:
       - uses: JuliaRegistries/TagBot@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ssh: ${{ secrets.DOCUMENTER_KEY }}
       - name: Prepend CHANGELOG to release notes
         run: |
           sleep 5
@@ -109,10 +79,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+**Key details:**
+- `actions/checkout@v4` is required so the script can read `CHANGELOG.md`
+- `schedule` trigger ensures TagBot catches versions even if the `issue_comment` event is missed
+- Actor check uses `JuliaTagBot` (not `JuliaRegistrator`) — JuliaRegistrator triggers the registry PR, TagBot runs under its own actor
+- `ssh: ${{ secrets.DOCUMENTER_KEY }}` is optional but recommended to avoid 403 errors when the version commit touches workflow files
+- Explicit `permissions: contents: write, issues: read, pull-requests: read` avoids silent failures when repository-wide workflow permissions are read-only
+
 **How it works:**
 1. TagBot creates the release with auto-generated PR/issue lists
-2. The script reads the matching section from `CHANGELOG.md`
+2. The `Prepend CHANGELOG` step reads the matching `## [X.Y.Z]` section from `CHANGELOG.md`
 3. It prepends the CHANGELOG content above TagBot's output, separated by `---`
+
+**Registration flow with this setup:**
+1. Update version in `Project.toml` and add a `## [X.Y.Z] - YYYY-MM-DD` section in `CHANGELOG.md`
+2. Commit and push
+3. Comment `@JuliaRegistrator register` on the commit (no release notes needed)
+4. TagBot handles the rest — CHANGELOG content appears automatically in the GitHub release
 
 ### SSH Deploy Key (Optional but Recommended)
 
