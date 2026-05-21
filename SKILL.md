@@ -232,7 +232,7 @@ Read `references/registry-guide.md` for the complete registration process.
 **Quick reference:**
 
 1. **Install JuliaRegistrator app**: https://github.com/apps/JuliaRegistrator → Install on repo
-2. **Update version in Project.toml** (SemVer: breaking→minor, features→patch, fixes→patch)
+2. **Update version in Project.toml** (SemVer: breaking→minor, features→patch, fixes→patch). **Also check `docs/Project.toml`**: if it pins your package version in `[compat]` (e.g., `YourPackage = "0.2.0"`), bump it to match the new version — otherwise the Documentation CI will fail with "empty intersection" when `Pkg.develop` tries to install the new version.
 3. **Update `CHANGELOG.md`** — add a `## [X.Y.Z] - YYYY-MM-DD` section with your changes, move entries out of `[Unreleased]`
 4. **Push the version bump + CHANGELOG commit**
 5. **Trigger registration** — comment on the commit:
@@ -268,6 +268,7 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 10. **Aqua stale_deps with hard dependencies**: If you add a package to `[deps]`, the main module must `using` or `import` it somewhere, or Aqua will flag it as stale. Re-export patterns (`@eval const $sym = SubModule.$sym`) do not count as usage for Aqua.
 11. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
 12. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
+13. **`docs/Project.toml` version out of sync**: If your docs environment pins the package version (e.g., `ManifoldMeshes = "0.2.0"`), bump it alongside the main `Project.toml`. A mismatch causes the Documentation CI to fail with `ERROR: empty intersection between ManifoldMeshes@0.3.0 and project compatibility 0.2`, and the `vX.Y.Z` tag will be placed on a commit with broken docs deployment.
 
 ## Directory Reference
 
