@@ -120,18 +120,16 @@ jobs:
       contents: write
       statuses: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
         with:
           version: "1.10"
-      - uses: julia-actions/cache@v2
-      - name: Install dependencies
-        run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
-      - name: Build and deploy
+      - uses: julia-actions/cache@v3
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-docdeploy@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-        run: julia --project=docs docs/make.jl
 ```
 
 **Critical**: Use an explicit Julia version (`"1.10"`) instead of `"1"`. `"1"` resolves to the latest release, which may be a pre-release with breaking internal API changes that cause dependency precompilation failures.

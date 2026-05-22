@@ -154,6 +154,7 @@ Read `references/ci-workflow.md` for the main CI template, `references/auxiliary
 | `.github/dependabot.yml` | Auto-update GitHub Actions versions | **Required** |
 | `.github/workflows/julia_formatter.yml` | Enforce code formatting | Recommended |
 | `.github/workflows/Documentation.yml` | Build and deploy docs to GitHub Pages | Recommended |
+| `.github/workflows/DocCleanup.yml` | Remove PR preview docs from gh-pages when closed | Recommended |
 | `.github/workflows/Invalidations.yml` | Check load-time regressions | Optional |
 
 **CI matrix recommendation:**

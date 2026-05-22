@@ -31,17 +31,17 @@ jobs:
         arch:
           - x64
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
         if: matrix.version == '1' && matrix.os == 'ubuntu-latest'
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v6
         if: matrix.version == '1' && matrix.os == 'ubuntu-latest'
         with:
           files: lcov.info

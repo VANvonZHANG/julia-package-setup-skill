@@ -47,9 +47,9 @@ jobs:
   CompatHelper:
     runs-on: ubuntu-latest
     steps:
-      - uses: julia-actions/setup-julia@v2
+      - uses: julia-actions/setup-julia@v3
         with:
-          version: '1.10'
+          version: '1'
       - name: Pkg.add("CompatHelper")
         run: julia -e 'using Pkg; Pkg.add("CompatHelper")'
       - name: CompatHelper.main()
@@ -85,12 +85,13 @@ permissions:
   contents: write
   issues: read
   pull-requests: read
+  actions: read
 jobs:
   TagBot:
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: JuliaRegistries/TagBot@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -113,11 +114,11 @@ jobs:
 ```
 
 **Key details:**
-- `actions/checkout@v4` is required so the script can read `CHANGELOG.md`
+- `actions/checkout@v6` is required so the script can read `CHANGELOG.md`
 - `schedule` trigger ensures TagBot catches versions even if the `issue_comment` event is missed
 - Actor check uses `JuliaTagBot` (not `JuliaRegistrator`) — JuliaRegistrator triggers the registry PR, TagBot runs under its own actor
 - `ssh: ${{ secrets.DOCUMENTER_KEY }}` is optional but recommended to avoid 403 errors when the version commit touches workflow files
-- Explicit `permissions: contents: write, issues: read, pull-requests: read` avoids silent failures when repository-wide workflow permissions are read-only
+- Explicit `permissions: contents: write, issues: read, pull-requests: read, actions: read` avoids silent failures when repository-wide workflow permissions are read-only. The `actions: read` permission is required for the `gh release view/edit` commands in the CHANGELOG integration step
 
 **How it works:**
 1. TagBot creates the release with auto-generated PR/issue lists
@@ -165,15 +166,15 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
         with:
-          version: '1.10'
+          version: '1'
       - run: |
           julia -e 'using Pkg; Pkg.add("JuliaFormatter")'
           julia -e 'using JuliaFormatter; format(".", verbose=true)'
       - run: |
-          git diff --exit-code || (echo "::error::Code is not formatted. Run 'julia -e '"'"'using JuliaFormatter; format(".")'"'"''"; exit 1)
+          git diff --exit-code || (echo "::error::Code is not formatted. Run: julia -e 'using JuliaFormatter; format(\".\")'"; exit 1)
 ```
 
 **Pin Julia version** (`'1.10'`) to avoid formatter behavior changes on pre-releases.
