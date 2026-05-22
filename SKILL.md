@@ -27,7 +27,7 @@ Trigger when the user needs any of:
 - **CI/CD setup**: GitHub Actions workflows for testing, formatting, coverage
 - **Quality tools**: Aqua.jl, JuliaFormatter, codecov integration
 - **Registry registration**: Publishing to Julia General Registry
-- **TagBot/CompatHelper**: Automated tag creation and dependency updates
+- **TagBot/CompatHelper/Dependabot**: Automated tag creation, dependency updates, and Actions version bumps
 - **Project structure**: Project.toml, LICENSE, .gitignore, README
 
 ## Workflow Overview
@@ -151,6 +151,7 @@ Read `references/ci-workflow.md` for the main CI template, `references/auxiliary
 | `.github/workflows/CI.yml` | Test on multiple Julia versions/platforms | **Required** |
 | `.github/workflows/TagBot.yml` | Auto-create tags after registration | **Required** |
 | `.github/workflows/CompatHelper.yml` | Keep dependency bounds updated | **Required** |
+| `.github/dependabot.yml` | Auto-update GitHub Actions versions | **Required** |
 | `.github/workflows/julia_formatter.yml` | Enforce code formatting | Recommended |
 | `.github/workflows/Documentation.yml` | Build and deploy docs to GitHub Pages | Recommended |
 | `.github/workflows/Invalidations.yml` | Check load-time regressions | Optional |
@@ -276,7 +277,7 @@ All bundled templates are in `references/`:
 
 - `references/project-structure.md` — Project.toml, LICENSE, .gitignore, module structure
 - `references/ci-workflow.md` — Main CI.yml template with matrix configuration
-- `references/auxiliary-workflows.md` — TagBot (with CHANGELOG integration), CompatHelper, JuliaFormatter, Invalidations
+- `references/auxiliary-workflows.md` — TagBot (with CHANGELOG integration), CompatHelper, Dependabot, JuliaFormatter, Invalidations
 - `references/changelog-guide.md` — Keep a Changelog format and GitHub release integration
 - `references/docs-deployment.md` — Documenter.jl setup, GitHub Pages deployment
 - `references/registry-guide.md` — Complete registration process with troubleshooting

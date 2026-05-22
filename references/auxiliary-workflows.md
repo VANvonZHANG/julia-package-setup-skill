@@ -1,5 +1,38 @@
 # Auxiliary Workflows
 
+## Dependabot
+
+`.github/dependabot.yml` — automatically monitors and proposes updates for GitHub Actions versions used in workflows.
+
+Dependabot is a GitHub-native service (no workflow file needed). It scans `.github/workflows/` on a schedule and opens Pull Requests when Actions have new releases.
+
+### Recommended Configuration
+
+Use `monthly` checks with `groups` to bundle all Actions updates into a single PR. This avoids the noise of one PR per dependency.
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
+```
+
+**Key settings:**
+- `interval: "monthly"` — reduces PR frequency compared to default `weekly`
+- `groups` with `patterns: ["*"]` — bundles all Actions updates into one PR and one branch
+- `open-pull-requests-limit: 3` — caps the number of concurrent open PRs
+
+**Why bundle updates?** Without `groups`, Dependabot creates one PR per Action (e.g., `actions/checkout-6`, `codecov/codecov-action-6`), each with its own branch. This quickly litters the repo with transient branches. Grouping consolidates everything into a single PR like "Bump github-actions group".
+
+**After merge cleanup:** Dependabot deletes the remote branch automatically after PR merge, but local `git fetch --prune` is needed to clear stale `remotes/origin/` references.
+
 ## CompatHelper
 
 `.github/workflows/CompatHelper.yml` — automatically updates `[compat]` bounds when dependencies release new versions.
@@ -210,6 +243,7 @@ jobs:
 | CI | **Yes** | Run tests on multiple Julia versions and platforms |
 | TagBot | **Yes** | Auto-create tags after Registry registration |
 | CompatHelper | **Yes** | Keep dependency compat bounds up to date |
+| Dependabot | **Yes** | Auto-update GitHub Actions versions |
 | JuliaFormatter | Recommended | Enforce consistent code style |
 | Invalidations | Optional | Catch performance regressions at load time |
 | DocCleanup | Optional | Clean up PR preview docs |
