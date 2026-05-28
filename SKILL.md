@@ -231,6 +231,15 @@ Read `references/registry-guide.md` for the complete registration process.
 
 **Prerequisite**: TagBot must be configured with CHANGELOG auto-read (see `references/auxiliary-workflows.md` TagBot Combined Mode). This means `CHANGELOG.md` is the single source of truth for release notes — no need to manually copy them into the registration comment.
 
+**Pre-release checklist:**
+
+- [ ] `Project.toml` version bumped to new SemVer
+- [ ] `docs/Project.toml` `[compat]` version synced (if it pins your package)
+- [ ] `CHANGELOG.md` has `## [X.Y.Z] - YYYY-MM-DD` section, `[Unreleased]` is empty
+- [ ] Local tests pass: `julia --project -e 'using Pkg; Pkg.test()'`
+- [ ] Local formatting clean: `julia -e 'using JuliaFormatter; format(".")'` produces no diff
+- [ ] (Breaking releases) Registration comment includes `Release notes: See CHANGELOG.md`
+
 **Quick reference:**
 
 1. **Install JuliaRegistrator app**: https://github.com/apps/JuliaRegistrator → Install on repo
@@ -263,7 +272,16 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 3. **Duplicate codecov uploads**: Only upload coverage from ONE CI job
 4. **TagBot not installed**: Without TagBot, tags must be created manually after registration
 5. **TagBot 403 permission denied**: Ensure repo Settings → Actions → General → "Read and write permissions" is enabled. Do NOT add explicit `permissions:` blocks to TagBot.yml — the official TagBot recommendation is to use repository defaults. Note: `workflow_dispatch` (manual) triggers always receive read-only tokens from GitHub regardless of settings; use `gh release create` CLI or the GitHub UI for manual releases instead.
-6. **Doc Preview Cleanup 403**: GitHub Actions defaults to read-only since 2023. Any workflow that pushes to a branch (Doc Preview Cleanup on `gh-pages`, TagBot creating tags, Documentation deploying docs) must declare `permissions: contents: write` at the job level. Do not rely on repository-wide settings.
+
+   **Workflow permissions decision table:**
+
+   | Workflow | Permission approach | Why |
+   |----------|---------------------|-----|
+   | TagBot | Repo default (Settings → Actions → Read and write) | Official recommendation; explicit blocks don't help `workflow_dispatch` |
+   | DocCleanup | `permissions: contents: write` at job level | GitHub 2023+ defaults to read-only; must declare to push to `gh-pages` |
+   | JuliaFormatter | No declaration needed | Read-only check; no writes |
+
+6. **Doc Preview Cleanup 403**: See the decision table above. DocCleanup specifically needs `permissions: contents: write` because it force-pushes to `gh-pages` to delete PR preview directories.
 7. **DOCUMENTER_KEY not configured**: Documenter.jl needs an SSH deploy key to push docs to `gh-pages`. Without it, docs build but never deploy. Generate with `ssh-keygen -t ed25519`, add private key as `DOCUMENTER_KEY` secret, public key as Deploy key with write access.
 8. **Julia `version: "1"` picks pre-releases**: In GitHub Actions, `"1"` resolves to the latest release including pre-releases with breaking internal changes (e.g., Julia 1.12 dropped `Core.TypeName.mt`, breaking MakieCore precompilation). Pin deployment workflows (docs, formatter, CompatHelper) to an explicit LTS like `"1.10"`.
 9. **Submodule docstrings missing from manual**: `@autodocs Modules = [YourPackageName]` does not include submodules. Add a separate `@autodocs Modules = [YourPackageName.SubModule]` block or set `checkdocs = :exports` / `warnonly = [:missing_docs]` in `makedocs`.

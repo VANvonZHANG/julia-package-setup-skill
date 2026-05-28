@@ -104,7 +104,7 @@ jobs:
             exit 0
           fi
           VERSION="${TAG#v}"
-          NOTES=$(awk "/^## \[$VERSION\]/{flag=1;next}/^## \[/{flag=0}flag" CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//')
+          NOTES=$(awk '/^## \['"$VERSION"'\]/{flag=1;next}/^## \[/{flag=0}flag' CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//;p')
           if [ -n "$NOTES" ]; then
             EXISTING=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q '.body' 2>/dev/null || echo "")
             if [ -n "$EXISTING" ]; then
@@ -121,7 +121,7 @@ jobs:
 - `schedule` trigger ensures TagBot catches versions even if the `issue_comment` event is missed
 - Actor check uses `JuliaTagBot` (not `JuliaRegistrator`) — JuliaRegistrator triggers the registry PR, TagBot runs under its own actor
 - `ssh: ${{ secrets.DOCUMENTER_KEY }}` is optional but recommended to avoid 403 errors when the version commit touches workflow files
-- **No explicit `permissions` block** — TagBot official recommendation is to rely on repository Settings → Actions → General → "Read and write permissions". Explicit `permissions` blocks do not help with `workflow_dispatch` manual triggers (those always get read-only tokens) and can cause confusion.
+- **No explicit `permissions` block in TagBot** — TagBot official recommendation is to rely on repository Settings → Actions → General → "Read and write permissions". Explicit `permissions` blocks do not help with `workflow_dispatch` manual triggers (those always get read-only tokens) and can cause confusion.
 - The CHANGELOG prepend step uses `gh release list` API instead of `git describe` because `actions/checkout` performs a shallow clone and the newly-created tag is not in local git history.
 - `sleep 15` allows time for TagBot to finish creating the release before the script attempts to edit it.
 
@@ -174,7 +174,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v3
         with:
-          version: '1'
+          version: '1.10'
       - run: |
           julia -e 'using Pkg; Pkg.add("JuliaFormatter")'
           julia -e 'using JuliaFormatter; format(".", verbose=true)'
@@ -183,6 +183,20 @@ jobs:
 ```
 
 **Pin Julia version** (`'1.10'`) to avoid formatter behavior changes on pre-releases.
+
+**Handling JuliaFormatter version upgrades:**
+When `Pkg.add("JuliaFormatter")` installs a newer version with changed formatting rules, the format check may fail on files that were previously considered correctly formatted. This is expected — not a bug in your code.
+
+To resolve:
+```bash
+julia -e 'using Pkg; Pkg.add("JuliaFormatter"); using JuliaFormatter; format(".")'
+```
+
+Then commit the formatting changes separately:
+```bash
+git add -A
+git commit -m "style: apply JuliaFormatter vX.Y.Z"
+```
 
 ## Invalidations
 
