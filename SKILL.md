@@ -262,7 +262,7 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 2. **No LICENSE**: Registry requires a LICENSE file
 3. **Duplicate codecov uploads**: Only upload coverage from ONE CI job
 4. **TagBot not installed**: Without TagBot, tags must be created manually after registration
-5. **TagBot 403 permission denied**: Ensure explicit `permissions: contents: write` in TagBot.yml, or enable "Read and write permissions" in repo Settings → Actions → General
+5. **TagBot 403 permission denied**: Ensure repo Settings → Actions → General → "Read and write permissions" is enabled. Do NOT add explicit `permissions:` blocks to TagBot.yml — the official TagBot recommendation is to use repository defaults. Note: `workflow_dispatch` (manual) triggers always receive read-only tokens from GitHub regardless of settings; use `gh release create` CLI or the GitHub UI for manual releases instead.
 6. **Doc Preview Cleanup 403**: GitHub Actions defaults to read-only since 2023. Any workflow that pushes to a branch (Doc Preview Cleanup on `gh-pages`, TagBot creating tags, Documentation deploying docs) must declare `permissions: contents: write` at the job level. Do not rely on repository-wide settings.
 7. **DOCUMENTER_KEY not configured**: Documenter.jl needs an SSH deploy key to push docs to `gh-pages`. Without it, docs build but never deploy. Generate with `ssh-keygen -t ed25519`, add private key as `DOCUMENTER_KEY` secret, public key as Deploy key with write access.
 8. **Julia `version: "1"` picks pre-releases**: In GitHub Actions, `"1"` resolves to the latest release including pre-releases with breaking internal changes (e.g., Julia 1.12 dropped `Core.TypeName.mt`, breaking MakieCore precompilation). Pin deployment workflows (docs, formatter, CompatHelper) to an explicit LTS like `"1.10"`.
@@ -271,6 +271,7 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 11. **UUID not generated**: Run `using UUIDs; uuid4()` to get a valid UUID
 12. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
 13. **`docs/Project.toml` version out of sync**: If your docs environment pins the package version (e.g., `ManifoldMeshes = "0.2.0"`), bump it alongside the main `Project.toml`. A mismatch causes the Documentation CI to fail with `ERROR: empty intersection between ManifoldMeshes@0.3.0 and project compatibility 0.2`, and the `vX.Y.Z` tag will be placed on a commit with broken docs deployment.
+14. **AutoMerge blocks breaking releases without release notes (since Dec 2024)**: Julia General Registry now requires release notes for breaking releases. The notes MUST contain the word "breaking" or "changelog". For breaking releases, include in your `@JuliaRegistrator register` comment: `Release notes: See CHANGELOG.md` — the word "changelog" satisfies the requirement.
 
 ## Directory Reference
 

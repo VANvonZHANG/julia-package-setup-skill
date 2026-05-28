@@ -59,12 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Integration with TagBot
 
-### Recommended: CHANGELOG Auto-Read (No Manual Release Notes)
+### Recommended: CHANGELOG Auto-Read
 
 Configure TagBot with the `Prepend CHANGELOG to release notes` step (see `auxiliary-workflows.md`). This is the recommended approach:
 
 1. Maintain `CHANGELOG.md` with version sections as shown above
-2. When registering, simply comment `@JuliaRegistrator register` on the commit — no release notes needed
+2. When registering, simply comment `@JuliaRegistrator register` on the commit
 3. After TagBot creates the release, the script automatically extracts the matching `## [X.Y.Z]` section from `CHANGELOG.md` and prepends it to the release body
 
 Resulting release body:
@@ -85,6 +85,16 @@ Resulting release body:
 ```
 
 **Why this approach:** Single source of truth. You edit `CHANGELOG.md` once, and both the GitHub release and future readers get the same content. No manual copy-paste during registration.
+
+**Important exception for breaking releases (since December 2024):** Julia General Registry AutoMerge now requires release notes for breaking releases. The notes MUST contain the word "breaking" or "changelog". Even with the CHANGELOG auto-read setup, include this in your registration comment:
+
+```
+@JuliaRegistrator register()
+
+Release notes: See CHANGELOG.md for a description of changes in this release.
+```
+
+The word "changelog" satisfies the AutoMerge check. Without it, the registry PR will be blocked with "This is a breaking change, but no release notes have been provided."
 
 ### Alternative: Manual Release Notes
 

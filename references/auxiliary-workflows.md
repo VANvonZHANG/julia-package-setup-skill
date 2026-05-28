@@ -81,11 +81,6 @@ on:
         default: 3
   schedule:
     - cron: 0 0 * * *
-permissions:
-  contents: write
-  issues: read
-  pull-requests: read
-  actions: read
 jobs:
   TagBot:
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
@@ -98,8 +93,16 @@ jobs:
           ssh: ${{ secrets.DOCUMENTER_KEY }}
       - name: Prepend CHANGELOG to release notes
         run: |
-          sleep 5
-          TAG=$(git describe --tags --abbrev=0)
+          sleep 15
+          TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName -q '.[0].tagName')
+          if [ -z "$TAG" ]; then
+            git fetch --tags --prune-tags --force
+            TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          fi
+          if [ -z "$TAG" ]; then
+            echo "Could not determine tag name, skipping CHANGELOG prepend"
+            exit 0
+          fi
           VERSION="${TAG#v}"
           NOTES=$(awk "/^## \[$VERSION\]/{flag=1;next}/^## \[/{flag=0}flag" CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//')
           if [ -n "$NOTES" ]; then
@@ -118,7 +121,9 @@ jobs:
 - `schedule` trigger ensures TagBot catches versions even if the `issue_comment` event is missed
 - Actor check uses `JuliaTagBot` (not `JuliaRegistrator`) — JuliaRegistrator triggers the registry PR, TagBot runs under its own actor
 - `ssh: ${{ secrets.DOCUMENTER_KEY }}` is optional but recommended to avoid 403 errors when the version commit touches workflow files
-- Explicit `permissions: contents: write, issues: read, pull-requests: read, actions: read` avoids silent failures when repository-wide workflow permissions are read-only. The `actions: read` permission is required for the `gh release view/edit` commands in the CHANGELOG integration step
+- **No explicit `permissions` block** — TagBot official recommendation is to rely on repository Settings → Actions → General → "Read and write permissions". Explicit `permissions` blocks do not help with `workflow_dispatch` manual triggers (those always get read-only tokens) and can cause confusion.
+- The CHANGELOG prepend step uses `gh release list` API instead of `git describe` because `actions/checkout` performs a shallow clone and the newly-created tag is not in local git history.
+- `sleep 15` allows time for TagBot to finish creating the release before the script attempts to edit it.
 
 **How it works:**
 1. TagBot creates the release with auto-generated PR/issue lists
