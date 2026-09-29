@@ -239,6 +239,7 @@ Read `references/registry-guide.md` for the complete registration process.
 - [ ] Local tests pass: `julia --project -e 'using Pkg; Pkg.test()'`
 - [ ] Local formatting clean: `julia -e 'using JuliaFormatter; format(".")'` produces no diff
 - [ ] (Breaking releases) Registration comment includes `Release notes: See CHANGELOG.md`
+- [ ] (After TagBot) Release notes contain exactly ONE copy of the CHANGELOG section + the auto diff/PR block — duplicated copies mean a non-idempotent prepend step; a missing section means it targeted the wrong release
 
 **Quick reference:**
 
@@ -271,7 +272,7 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 2. **No LICENSE**: Registry requires a LICENSE file
 3. **Duplicate codecov uploads**: Only upload coverage from ONE CI job
 4. **TagBot not installed**: Without TagBot, tags must be created manually after registration
-5. **TagBot 403 permission denied**: Ensure repo Settings → Actions → General → "Read and write permissions" is enabled. Do NOT add explicit `permissions:` blocks to TagBot.yml — the official TagBot recommendation is to use repository defaults. Note: `workflow_dispatch` (manual) triggers always receive read-only tokens from GitHub regardless of settings; use `gh release create` CLI or the GitHub UI for manual releases instead.
+5. **TagBot 403 permission denied**: Ensure repo Settings → Actions → General → "Read and write permissions" is enabled. Do NOT add explicit `permissions:` blocks to TagBot.yml — the official TagBot recommendation is to use repository defaults. Note: `workflow_dispatch` (manual) triggers always receive read-only tokens from GitHub regardless of settings; use `gh release create` CLI or the GitHub UI for manual releases instead. **Diagnostic — the silent no-op:** a TagBot dispatch that completes "success" in ~35 s but creates NO tag/release means the version is not yet registered in General (TagBot only releases registered versions); a real release run takes minutes. Check General's `Versions.toml` before debugging permissions.
 
    **Workflow permissions decision table:**
 
@@ -290,6 +291,7 @@ In Julia's 0.x convention, patch bumps include all backward-compatible changes. 
 12. **Tests failing on CI but passing locally**: Check for platform-specific issues, missing test dependencies in `[extras]`
 13. **`docs/Project.toml` version out of sync**: If your docs environment pins the package version (e.g., `ManifoldMeshes = "0.2.0"`), bump it alongside the main `Project.toml`. A mismatch causes the Documentation CI to fail with `ERROR: empty intersection between ManifoldMeshes@0.3.0 and project compatibility 0.2`, and the `vX.Y.Z` tag will be placed on a commit with broken docs deployment.
 14. **AutoMerge blocks breaking releases without release notes (since Dec 2024)**: Julia General Registry now requires release notes for breaking releases. The notes MUST contain the word "breaking" or "changelog". For breaking releases, include in your `@JuliaRegistrator register` comment: `Release notes: See CHANGELOG.md` — the word "changelog" satisfies the requirement.
+15. **CHANGELOG-prepend step must be deterministic and idempotent**: A custom "Prepend CHANGELOG to release notes" step that picks its target via `gh release list` (latest release) races the API and misfires — production incidents: prepending onto the *previous* version's release (duplicating its notes 2-3×) when dispatched before a release existed, and skipping the new release entirely due to list lag right after creation. Use the hardened template in `references/auxiliary-workflows.md`: derive the target from the checkout's `Project.toml` version, retry until the release object is visible, and guard against re-prepending an already-present section. Always verify the published notes contain exactly ONE copy of the CHANGELOG section.
 
 ## Directory Reference
 

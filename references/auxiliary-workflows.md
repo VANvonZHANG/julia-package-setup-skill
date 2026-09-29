@@ -93,42 +93,66 @@ jobs:
           ssh: ${{ secrets.DOCUMENTER_KEY }}
       - name: Prepend CHANGELOG to release notes
         run: |
-          sleep 15
-          TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName -q '.[0].tagName')
-          if [ -z "$TAG" ]; then
-            git fetch --tags --prune-tags --force
-            TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
-          fi
-          if [ -z "$TAG" ]; then
-            echo "Could not determine tag name, skipping CHANGELOG prepend"
+          # Target the version in the checked-out Project.toml (the version just released),
+          # NOT "whatever release is latest" — immune to release-list API lag and no-op runs.
+          VERSION=$(grep -m1 '^version' Project.toml | cut -d'"' -f2)
+          if [ -z "$VERSION" ]; then
+            echo "Could not read version from Project.toml, skipping CHANGELOG prepend"
             exit 0
           fi
-          VERSION="${TAG#v}"
+          TAG="v$VERSION"
+          # Wait for the release object to become visible (TagBot action created it moments ago)
+          EXISTING=""
+          for _ in 1 2 3 4 5 6; do
+            EXISTING=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q '.body' 2>/dev/null || true)
+            [ -n "$EXISTING" ] && break
+            sleep 10
+          done
           NOTES=$(awk '/^## \['"$VERSION"'\]/{flag=1;next}/^## \[/{flag=0}flag' CHANGELOG.md | sed '/./,$!d' | sed -n ':a;N;$!ba;s/\n*$//;p')
-          if [ -n "$NOTES" ]; then
-            EXISTING=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q '.body' 2>/dev/null || echo "")
-            if [ -n "$EXISTING" ]; then
-              COMBINED="${NOTES}"$'\n\n---\n\n'"${EXISTING}"
-              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "${COMBINED}"
+          if [ -z "$NOTES" ]; then
+            echo "No CHANGELOG section for $VERSION, skipping prepend"
+            exit 0
+          fi
+          # Idempotency guard: skip if this CHANGELOG section is already in the notes
+          FIRST_HEADING=$(printf '%s\n' "$NOTES" | grep -m1 '^#\+ ' || true)
+          if [ -n "$FIRST_HEADING" ] && printf '%s\n' "$EXISTING" | grep -qF -- "$FIRST_HEADING"; then
+            echo "CHANGELOG section already present in $TAG notes, skipping prepend"
+            exit 0
+          fi
+          if [ -n "$EXISTING" ]; then
+            # Extract title (first non-empty line, e.g. "MyPkg v1.2.3"), keep it above the section
+            TITLE=$(printf '%s\n' "$EXISTING" | awk 'NF{print; exit}')
+            BODY=$(printf '%s\n' "$EXISTING" | awk 'found{print; next} NF{found=1}')
+            # Strip registrator release-notes summary lines from body
+            CLEANED=$(printf '%s\n' "$BODY" | sed '/^[[:space:]]*See CHANGELOG/d; /^[[:space:]]*Release notes:/d' | sed '/./,$!d')
+            if [ -n "$CLEANED" ]; then
+              COMBINED="${TITLE}"$'\n\n'"${NOTES}"$'\n\n---\n\n'"${CLEANED}"
+            else
+              COMBINED="${TITLE}"$'\n\n'"${NOTES}"
             fi
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "${COMBINED}"
+          else
+            echo "Release $TAG not visible after retries, skipping prepend"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 **Key details:**
-- `actions/checkout@v6` is required so the script can read `CHANGELOG.md`
+- `actions/checkout@v6` is required so the script can read `CHANGELOG.md` and `Project.toml`
 - `schedule` trigger ensures TagBot catches versions even if the `issue_comment` event is missed
 - Actor check uses `JuliaTagBot` (not `JuliaRegistrator`) — JuliaRegistrator triggers the registry PR, TagBot runs under its own actor
 - `ssh: ${{ secrets.DOCUMENTER_KEY }}` is optional but recommended to avoid 403 errors when the version commit touches workflow files
 - **No explicit `permissions` block in TagBot** — TagBot official recommendation is to rely on repository Settings → Actions → General → "Read and write permissions". Explicit `permissions` blocks do not help with `workflow_dispatch` manual triggers (those always get read-only tokens) and can cause confusion.
-- The CHANGELOG prepend step uses `gh release list` API instead of `git describe` because `actions/checkout` performs a shallow clone and the newly-created tag is not in local git history.
-- `sleep 15` allows time for TagBot to finish creating the release before the script attempts to edit it.
+- **The prepend step derives its target from `Project.toml` in the checkout, never from `gh release list`.** Targeting "the latest release" lost the race twice in production: the release-list API lagged right after the release was created (the step edited the wrong release or skipped), and manual dispatches fired before any release existed (the step prepended onto the *previous* version's release instead). `Project.toml` at workflow time IS the version being released — deterministic, no API involved.
+- **A retry loop (6 × 10 s) replaces a blind `sleep 15`.** The release object is created seconds earlier by the TagBot action in the same run; API visibility can lag. The loop waits for it to appear instead of hoping 15 seconds is enough.
+- **The idempotency guard is mandatory.** Without it, every extra workflow run (manual dispatch, retry, re-trigger) prepends another copy of the CHANGELOG section — production incidents reached 2-3 duplicated copies before the guard existed. The guard skips when the section's first heading is already present in the notes.
 
 **How it works:**
 1. TagBot creates the release with auto-generated PR/issue lists
-2. The `Prepend CHANGELOG` step reads the matching `## [X.Y.Z]` section from `CHANGELOG.md`
-3. It prepends the CHANGELOG content above TagBot's output, separated by `---`
+2. The `Prepend CHANGELOG` step derives `TAG` from `Project.toml`, waits for the release to be visible
+3. It reads the matching `## [X.Y.Z]` section from `CHANGELOG.md` and prepends it (with the title kept on top), separated by `---` from TagBot's output
+4. **Verify after releasing:** the release body should contain exactly ONE copy of the CHANGELOG section; duplicated sections mean the guard is missing, a missing section means the step targeted the wrong release — both indicate the pre-hardening template
 
 **Registration flow with this setup:**
 1. Update version in `Project.toml` and add a `## [X.Y.Z] - YYYY-MM-DD` section in `CHANGELOG.md`

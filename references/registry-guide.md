@@ -119,6 +119,7 @@ Update `version` in `Project.toml` BEFORE triggering registration.
 | "No LICENSE file" | Add a LICENSE |
 | Registration PR stuck | Comment `[noblock]` to prevent blocking, or wait for maintainer |
 | TagBot says "No new versions to release" | The tag already exists. Delete the tag (`git push --delete origin vX.Y.Z`) and re-trigger, or create the release manually with `gh release create`. |
+| TagBot dispatch completes "success" in ~35 s but creates NO tag/release | **The version is not yet registered in General.** TagBot only releases registered versions. Check `https://raw.githubusercontent.com/JuliaRegistries/General/master/<first-letter>/<PkgName>/Versions.toml` — if your version is absent, the `@JuliaRegistrator register` step hasn't been done or its registry PR hasn't merged yet. A real TagBot release run takes minutes (~3-4 min observed), not seconds. |
 | TagBot fails with 403 on release creation | Check if repo Settings → Actions → General → "Read and write permissions" is enabled. Do NOT add explicit `permissions:` blocks — rely on repo settings instead. |
 | TagBot fails with "refusing to allow a GitHub App to create or update workflow" | The tagged commit modified `.github/workflows/`. Configure an SSH deploy key (see `auxiliary-workflows.md`). |
 | No GitHub release after registration | Ensure the TagBot workflow has the CHANGELOG step (if using combined mode), or create the release manually. |
@@ -129,6 +130,7 @@ Update `version` in `Project.toml` BEFORE triggering registration.
 When TagBot fails, use this flow to diagnose and fix:
 
 **1. Release was not created at all**
+- FIRST: check whether the run completed "success" in ~35 s with no output — that is the **unregistered-version silent no-op** (see Troubleshooting table). Verify the version is in General's `Versions.toml` before debugging anything else.
 - Check TagBot run logs for 403 errors
 - If 403 + commit modified `.github/workflows/` → configure SSH deploy key (`TAGBOT_KEY`)
 - If 403 + commit did NOT modify workflows → GitHub token issue; check repo Settings → Actions permissions
@@ -136,16 +138,21 @@ When TagBot fails, use this flow to diagnose and fix:
 
 **2. Release was created but missing CHANGELOG content**
 - Check the "Prepend CHANGELOG" step logs
-- If `fatal: No names found, cannot describe anything` → the `git describe` command failed due to shallow clone
-- Fix: update TagBot.yml to use `gh release list` API (see `auxiliary-workflows.md` template)
-- Workaround: edit the release manually via GitHub UI and paste CHANGELOG content
+- Pre-hardening symptom: the step derived its target from `gh release list` ("whatever release is latest") — right after a release is created that API lags, so the step edited the wrong release or skipped
+- Fix: use the hardened template in `auxiliary-workflows.md` — target derived from `Project.toml` version + visibility retry loop + idempotency guard
+- Workaround: edit the release manually via `gh release edit vX.Y.Z --notes-file notes.md`
 
 **3. Tag already exists but no release**
 - Delete the tag: `git push --delete origin vX.Y.Z`
 - Re-trigger TagBot via Actions tab, OR
 - Create release manually: `gh release create vX.Y.Z --title "..." --notes "..."`
 
-**4. Manual trigger (workflow_dispatch) fails**
-- This is expected behavior — GitHub gives read-only tokens to manual workflow triggers
-- Do not rely on manual TagBot triggers for release creation
-- Use `gh release create` CLI or GitHub web UI instead
+**4. Manual trigger (workflow_dispatch)**
+- GitHub officially gives read-only `GITHUB_TOKEN`s to manual triggers — with repo Actions permissions set to "Read and write", manual TagBot dispatches HAVE been observed creating tags and releases successfully, but treat this as best-effort
+- Never fire a manual dispatch before the registry PR has merged — it is a guaranteed no-op (and with a release-list-based prepend step, it may corrupt the previous release's notes)
+- If a manual release is needed regardless: `gh release create vX.Y.Z --title "..." --notes-file notes.md`
+
+**5. CHANGELOG section duplicated (2-3 copies) in release notes**
+- Cause: a non-idempotent prepend step — every extra workflow run prepends another copy
+- Fix: adopt the hardened template (idempotency guard skips when the section's first heading is already present)
+- Repair existing notes: `gh release edit vX.Y.Z --notes-file canonical.md` (title + one CHANGELOG section + `---` + auto-generated diff/PR block)
